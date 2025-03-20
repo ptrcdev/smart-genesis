@@ -7,6 +7,9 @@ const { execSync } = require('child_process');
 const express = require('express');
 const axios = require('axios');
 const open = require('open').default;
+const dotenv = require('dotenv');
+dotenv.config();
+
 
 // GitHub OAuth configuration
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -443,35 +446,90 @@ async function initiateOAuthFlow() {
 async function createAndPushGitRepo(accessToken, projectName, targetDir, reposStructure) {
     try {
         console.log('[Smart Genesis] Creating GitHub repository...');
-        const repoResponse = await axios.post(
-            'https://api.github.com/user/repos',
-            {
-                name: projectName,
-                description: 'Repository created automatically by Smart Genesis CLI',
-                private: false,
-            },
-            {
-                headers: {
-                    Authorization: `token ${accessToken}`,
-                    Accept: 'application/vnd.github.v3+json',
+        let cloneUrl;
+        if (reposStructure === 'Separate Repos') {
+            const frontendRepoResponse = await axios.post(
+                'https://api.github.com/user/repos',
+                {
+                    name: `${projectName}-frontend`,
+                    description: 'Repository created automatically by Smart Genesis CLI',
+                    private: false,
                 },
-            }
-        );
-        const cloneUrl = repoResponse.data.clone_url;
-        console.log(`[Smart Genesis] Repository created: ${cloneUrl}`);
+                {
+                    headers: {
+                        Authorization: `token ${accessToken}`,
+                        Accept: 'application/vnd.github.v3+json',
+                    },
+                }
+            );
+            const backendRepoResponse = await axios.post(
+                'https://api.github.com/user/repos',
+                {
+                    name: `${projectName}-backend`,
+                    description: 'Repository created automatically by Smart Genesis CLI',
+                    private: false,
+                },
+                {
+                    headers: {
+                        Authorization: `token ${accessToken}`,
+                        Accept: 'application/vnd.github.v3+json',
+                    },
+                }
+            );
+            const frontendCloneUrl = frontendRepoResponse.data.clone_url;
+            const backendCloneUrl = backendRepoResponse.data.clone_url;
+            console.log(`[Smart Genesis] Frontend repository created: ${frontendCloneUrl}`);
+            console.log(`[Smart Genesis] Backend repository created: ${backendCloneUrl}`);
 
-        // Initialize local git repository, commit, add remote, and push
-        runCommand('git init', targetDir);
-        if (reposStructure === 'Monorepo') {
-            runCommand('git add .', path.join(targetDir, 'apps/frontend'));
-            runCommand('git add .', path.join(targetDir, 'apps/backend'));
+            // Initialize local git repository, commit, add remote, and push
+            runCommand('git init', `${projectName}-frontend`);
+            runCommand('git init', `${projectName}-backend`);
+
+            runCommand('git add .', `${projectName}-frontend`);
+            runCommand('git add .', `${projectName}-backend`);
+
+            runCommand('git add .', targetDir);
+            runCommand('git commit -m "Initial commit with scaffolded project"', `${projectName}-frontend`);
+            runCommand('git commit -m "Initial commit with scaffolded project"', `${projectName}-backend`);
+            runCommand(`git remote add origin ${frontendCloneUrl}`, `${projectName}-frontend`);
+            runCommand(`git remote add origin ${backendCloneUrl}`, `${projectName}-backend`);
+            runCommand('git branch -M main', `${projectName}-frontend`);
+            runCommand('git branch -M main', `${projectName}-backend`);
+            runCommand('git push -u origin main', `${projectName}-frontend`);
+            runCommand('git push -u origin main', `${projectName}-backend`);
+            console.log('[Smart Genesis] Code pushed to GitHub repository successfully.');
+        } else {
+            const repoResponse = await axios.post(
+                'https://api.github.com/user/repos',
+                {
+                    name: projectName,
+                    description: 'Repository created automatically by Smart Genesis CLI',
+                    private: false,
+                },
+                {
+                    headers: {
+                        Authorization: `token ${accessToken}`,
+                        Accept: 'application/vnd.github.v3+json',
+                    },
+                }
+            );
+            cloneUrl = repoResponse.data.clone_url;
+            console.log(`[Smart Genesis] Repository created: ${cloneUrl}`);
+            // Initialize local git repository, commit, add remote, and push
+            runCommand('git init', targetDir);
+
+            if (reposStructure === 'Monorepo') {
+                runCommand('git add .', path.join(targetDir, 'apps/frontend'));
+                runCommand('git add .', path.join(targetDir, 'apps/backend'));
+            }
+
+            runCommand('git add .', targetDir);
+            runCommand('git commit -m "Initial commit with scaffolded project"', targetDir);
+            runCommand(`git remote add origin ${cloneUrl}`, targetDir);
+            runCommand('git branch -M main', targetDir);
+            runCommand('git push -u origin main', targetDir);
+            console.log('[Smart Genesis] Code pushed to GitHub repository successfully.');
         }
-        runCommand('git add .', targetDir);
-        runCommand('git commit -m "Initial commit with scaffolded project"', targetDir);
-        runCommand(`git remote add origin ${cloneUrl}`, targetDir);
-        runCommand('git branch -M main', targetDir);
-        runCommand('git push -u origin main', targetDir);
-        console.log('[Smart Genesis] Code pushed to GitHub repository successfully.');
     } catch (error) {
         console.error('Error creating or pushing to GitHub repository:', error.response?.data || error);
     }
