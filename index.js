@@ -4,20 +4,26 @@ const handlebars = require('handlebars');
 const fs = require('fs-extra');
 const path = require('path');
 const { execSync } = require('child_process');
-const express = require('express');
 const axios = require('axios');
 const open = require('open').default;
 const dotenv = require('dotenv');
 dotenv.config();
 
-
-// GitHub OAuth configuration
-const CLIENT_ID = process.env.CLIENT_ID;
-const CLIENT_SECRET = process.env.CLIENT_SECRET;
-const REDIRECT_URI = process.env.REDIRECT_URI;
-const PORT = process.env.PORT;
-
 const prompt = inquirer.createPromptModule();
+
+function normalizeProjectNameForDjango(name) {
+    // Convert to lowercase
+    let normalized = name.toLowerCase();
+    // Replace hyphens and spaces with underscores
+    normalized = normalized.replace(/[-\s]+/g, '_');
+    // Remove any character that is not alphanumeric or underscore
+    normalized = normalized.replace(/[^a-z0-9_]/g, '');
+    // Ensure it doesn't start with a number: prepend an underscore if it does
+    if (/^[0-9]/.test(normalized)) {
+        normalized = '_' + normalized;
+    }
+    return normalized;
+}
 
 async function promptUser() {
     const common = await prompt([
@@ -181,7 +187,7 @@ async function scaffoldMonorepo(context) {
             if (context.backendFramework.includes('Django')) {
                 console.log(`Initializing Django project in ${backendDir}...`);
                 runCommand('python3 -m pip install Django', backendDir);
-                runCommand(`python -m django startproject ${context.projectName} .`, backendDir);
+                runCommand(`python -m django startproject ${normalizeProjectNameForDjango(context.projectName)} .`, backendDir);
             } else if (context.backendFramework.includes('Flask')) {
                 console.log(`Initializing Flask project in ${backendDir}...`);
                 runCommand('python3 -m pip install Flask', backendDir);
@@ -250,7 +256,7 @@ async function scaffoldSeparateRepos(context) {
         } else if (context.backendFramework.startsWith('Python')) {
             if (context.backendFramework.includes('Django')) {
                 console.log(`Initializing Django project in ${backendDir}...`);
-                runCommand(`python -m django startproject ${context.projectName} .`, backendDir);
+                runCommand(`python -m django startproject ${normalizeProjectNameForDjango(context.projectName)} .`, backendDir);
             } else if (context.backendFramework.includes('Flask')) {
                 console.log(`Initializing Flask project in ${backendDir}...`);
                 fs.ensureDirSync(backendDir);
@@ -303,7 +309,7 @@ async function scaffoldSingleRepo(context) {
             if (context.apiFramework.includes('Django')) {
                 console.log(`Initializing Django project in ${projectDir}...`);
                 runCommand('python3 -m pip install Django', projectDir);
-                runCommand(`python -m django startproject ${context.projectName} .`, projectDir);
+                runCommand(`python -m django startproject ${normalizeProjectNameForDjango(context.projectName)} .`, projectDir);
             } else if (context.apiFramework.includes('Flask')) {
                 console.log(`Initializing Flask project in ${projectDir}...`);
                 runCommand('python3 -m pip install Flask', projectDir);
@@ -377,68 +383,37 @@ async function overlayCustomFiles(context, targetDir, templateType) {
     console.log(`[Smart Genesis] Custom files added to ${targetDir} using ${templateType} templates.`);
 }
 
-// --- OAuth Server and Flow ---
-function startOAuthServer() {
-    return new Promise((resolve, reject) => {
-        const app = express();
-        const server = app.listen(PORT, () => {
-            console.log(`OAuth callback server listening on port ${PORT}`);
-        });
+// URLs to match our deployed OAuth service.
+const OAUTH_LOGIN_URL = 'https://oauth-server-production.up.railway.app/login';
+const OAUTH_TOKEN_URL = 'https://oauth-server-production.up.railway.app/token';
 
-        app.get('/callback', async (req, res) => {
-            const code = req.query.code;
-            if (!code) {
-                res.send('No code received.');
-                return reject(new Error('No code received.'));
-            }
-            try {
-                const tokenResponse = await axios.post(
-                    'https://github.com/login/oauth/access_token',
-                    {
-                        client_id: CLIENT_ID,
-                        client_secret: CLIENT_SECRET,
-                        code,
-                        redirect_uri: REDIRECT_URI,
-                    },
-                    { headers: { Accept: 'application/json' } }
-                );
-                const accessToken = tokenResponse.data.access_token;
-                if (!accessToken) {
-                    res.send('No access token received.');
-                    return reject(new Error('No access token received.'));
-                }
-                res.send('OAuth flow complete! You may now close this window.');
-                console.log(`[Smart Genesis] Access token: ${accessToken}`);
-                resolve(accessToken);
-            } catch (error) {
-                console.error('Error exchanging code for token:', error);
-                res.send('Error during token exchange.');
-                reject(error);
-            } finally {
-                // Delay closing the server slightly to ensure the response is sent
-                setTimeout(() => {
-                    server.close(() => {
-                        console.log('OAuth server closed.');
-                    });
-                }, 500);
-            }
-        });
+async function pollForAccessToken() {
+    const maxAttempts = 20;
+    const delayMs = 3000; 
 
-        app.on('error', (error) => {
-            reject(error);
-        });
-    });
+    console.log('Waiting for access token from your OAuth server...');
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            const response = await axios.get(OAUTH_TOKEN_URL);
+            if (response.data && response.data.token) {
+                console.log('Access token received!');
+                return response.data.token;
+            }
+        } catch (error) {
+            console.error('Polling error:', error.message);
+        }
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+    throw new Error('Timed out waiting for access token.');
 }
 
 async function initiateOAuthFlow() {
-    // Start the OAuth server first
-    const oauthPromise = startOAuthServer();
-    // Once the server is running, open the GitHub consent screen.
-    const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=repo`;
+    // Open the consent screen in the user's browser.
     console.log('Opening GitHub OAuth consent screen...');
-    await open(authUrl);
-    // Wait for the server callback to resolve with the access token.
-    const accessToken = await oauthPromise;
+    await open(OAUTH_LOGIN_URL);
+
+    // Poll the deployed OAuth server for the token.
+    const accessToken = await pollForAccessToken();
     return accessToken;
 }
 
