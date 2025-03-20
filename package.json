@@ -8,10 +8,33 @@
   "bin": {
     "smart-genesis": "index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "cli",
+    "scaffold",
+    "github",
+    "oauth",
+    "project",
+    "template",
+    "web app",
+    "api",
+    "cli tool",
+    "frontend",
+    "backend",
+    "monorepo",
+    "separate repos",
+    "nextjs",
+    "react",
+    "nestjs",
+    "django",
+    "flask",
+    "fastapi",
+    "python",
+    "node",
+    "bash"
+  ],
+  "author": "Patrícia Almeida",
+  "license": "MIT",
+  "description": "A CLI tool to scaffold projects with GitHub integration.",
   "dependencies": {
     "axios": "^1.8.4",
     "dotenv": "^16.4.7",
@@ -20,5 +43,14 @@
     "handlebars": "^4.7.8",
     "inquirer": "^12.5.0",
     "open": "^10.1.0"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ptrcdev/smart-genesis.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ptrcdev/smart-genesis/issues"
+  },
+  "homepage": "https://github.com/ptrcdev/smart-genesis#readme"
 }
