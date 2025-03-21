@@ -234,7 +234,7 @@ if __name__ == '__main__':
 
 async function scaffoldSeparateRepos(context) {
     // Frontend Repo
-    if (context.frontendFramework === 'Next.js' || context.frontendFramework === 'React') {
+    if (context.frontendFramework === 'Next.js' || context.frontendFramework === 'React' || context.frontendFramework === 'Vite') {
         const frontendName = `${context.projectName}-frontend`;
         const frontendDir = path.join(process.cwd(), frontendName);
         fs.ensureDirSync(frontendDir);
@@ -372,7 +372,7 @@ print("Welcome to ${context.projectName} CLI tool!")`, 'utf-8');
         const frontendName = `${context.projectName}-frontend`;
         const frontendDir = path.join(process.cwd(), frontendName);
         fs.ensureDirSync(frontendDir);
-        if (context.frontendFramework === 'Next.js' || context.frontendFramework === 'React') {
+        if (context.frontendFramework === 'Next.js' || context.frontendFramework === '  React' || context.frontendFramework === 'Vite') {
             const tsFlag = context.useTypeScript ? ' --typescript' : '';
             console.log(`Initializing Next.js app in ${frontendDir}...`);
             runCommand(`npx create-next-app .${tsFlag} --skip-git`, frontendDir);
