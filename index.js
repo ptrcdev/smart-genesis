@@ -54,7 +54,7 @@ async function promptUser() {
                 type: 'list',
                 name: 'frontendFramework',
                 message: 'Select your frontend framework:',
-                choices: ['Next.js', 'React'],
+                choices: ['Next.js', 'React', 'Vite'],
                 default: 'Next.js'
             },
             {
@@ -161,16 +161,19 @@ async function scaffoldMonorepo(context) {
     runCommand('npm init -y', projectDir);
 
     // Frontend
-    if (context.frontendFramework === 'Next.js' || context.frontendFramework === 'React') {
+    if (context.frontendFramework === 'Next.js' || context.frontendFramework === 'React' || context.frontendFramework === 'Vite') {
         const frontendDir = path.join(appsDir, 'frontend');
         fs.ensureDirSync(frontendDir);
         if (context.frontendFramework === 'Next.js') {
             const tsFlag = context.useTypeScript ? ' --typescript' : '';
             console.log(`Initializing Next.js app in ${frontendDir}...`);
             runCommand(`npx create-next-app .${tsFlag} --skip-git`, frontendDir);
-        } else {
+        } else if (context.frontendFramework === 'React') {
             console.log(`Initializing Create React App in ${frontendDir}...`);
             runCommand(`npx create-react-app . --skip-git`, frontendDir);
+        } else {
+            console.log(`Initializing Vite app in ${frontendDir}...`);
+            runCommand(`npx create-vite@latest . --template ${context.frontendFramework} --skip-git`, frontendDir);
         }
     }
 
@@ -239,9 +242,12 @@ async function scaffoldSeparateRepos(context) {
             const tsFlag = context.useTypeScript ? ' --typescript' : '';
             console.log(`Initializing Next.js app in ${frontendDir}...`);
             runCommand(`npx create-next-app .${tsFlag} --skip-git`, frontendDir);
-        } else {
+        } else if (context.frontendFramework === 'React') {
             console.log(`Initializing Create React App in ${frontendDir}...`);
             runCommand(`npx create-react-app . --skip-git`, frontendDir);
+        } else {
+            console.log(`Initializing Vite app in ${frontendDir}...`);
+            runCommand(`npx create-vite@latest . --template ${context.frontendFramework} --skip-git`, frontendDir);
         }
     }
 
@@ -362,9 +368,23 @@ echo "Welcome to ${context.projectName} CLI tool!"`, 'utf-8');
                 `#!/usr/bin/env python3
 print("Welcome to ${context.projectName} CLI tool!")`, 'utf-8');
         }
+    } else {
+        const frontendName = `${context.projectName}-frontend`;
+        const frontendDir = path.join(process.cwd(), frontendName);
+        fs.ensureDirSync(frontendDir);
+        if (context.frontendFramework === 'Next.js' || context.frontendFramework === 'React') {
+            const tsFlag = context.useTypeScript ? ' --typescript' : '';
+            console.log(`Initializing Next.js app in ${frontendDir}...`);
+            runCommand(`npx create-next-app .${tsFlag} --skip-git`, frontendDir);
+        } else if (context.frontendFramework === 'React') {
+            console.log(`Initializing Create React App in ${frontendDir}...`);
+            runCommand(`npx create-react-app . --skip-git`, frontendDir);
+        } else {
+            console.log(`Initializing Vite app in ${frontendDir}...`);
+            runCommand(`npx create-vite@latest . --template ${context.frontendFramework} --skip-git`, frontendDir);
+        }
+        console.log(`[Smart Genesis] Project scaffold for "${context.projectName}" has been created.`);
     }
-
-    console.log(`[Smart Genesis] Project scaffold for "${context.projectName}" has been created.`);
 }
 
 async function overlayCustomFiles(context, targetDir, templateType) {
@@ -389,7 +409,7 @@ const OAUTH_TOKEN_URL = 'https://oauth-server-production.up.railway.app/token';
 
 async function pollForAccessToken() {
     const maxAttempts = 20;
-    const delayMs = 3000; 
+    const delayMs = 3000;
 
     console.log('Waiting for access token from your OAuth server...');
     for (let i = 0; i < maxAttempts; i++) {
