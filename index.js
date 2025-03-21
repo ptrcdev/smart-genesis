@@ -567,9 +567,12 @@ async function main() {
                     const tsFlag = answers.useTypeScript ? ' --typescript' : '';
                     console.log(`Initializing Next.js app in ${projectDir}...`);
                     runCommand(`npx create-next-app .${tsFlag} --skip-git`, projectDir);
-                } else {
+                } else if (answers.frontendFramework === 'React') {
                     console.log(`Initializing Create React App in ${projectDir}...`);
                     runCommand(`npx create-react-app . --skip-git`, projectDir);
+                } else if (answers.frontendFramework === 'Vite') {
+                    console.log(`Initializing Vite app in ${projectDir}...`);
+                    runCommand(`npx create-vite@latest . --template ${answers.frontendFramework} --skip-git`, projectDir);
                 }
                 overlayCustomFiles(answers, projectDir, 'web-app');
             }
